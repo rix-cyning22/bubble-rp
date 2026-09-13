@@ -1,0 +1,67 @@
+{
+  "waveform": "sine",
+  "physical": {
+    "R0": 1.5e-6,
+    "f": 3.0e6,
+    "pA": 0.4e6,
+    "rho": 1000.0,
+    "gamma": 0.072,
+    "eta": 0.03,
+    "P0": 101325.0,
+    "kappa": 1.4
+  },
+  "domain": {
+    "t_end": 9.0,
+    "n_t_eval": 1500,
+    "de_lo": 1.0,
+    "de_hi": 3.5,
+    "de_steep": 1.6
+  },
+  "reference_solver": {
+    "method": "Radau",
+    "rtol": 1e-6,
+    "atol": 1e-8
+  },
+  "data": {
+    "anchor_step_low": 0.0125,
+    "anchor_step_high": 0.025,
+    "amp_floor": 0.05
+  },
+  "model": {
+    "hidden_dim": 64,
+    "num_layers": 3,
+    "num_freqs": 64,
+    "sigma": 3.0,
+    "num_de_freqs": 32,
+    "sigma_de": 2.0
+  },
+  "training": {
+    "epochs": 3000,
+    "lr": 1.2e-3,
+    "collocation_points": 20000,
+    "data_batch": 32768,
+    "data_weight": 1000.0,
+    "grad_clip": 1.0,
+    "r_floor": 1e-5,
+    "checkpoint": {
+      "model": "pinn_model.pt",
+      "metrics": "metrics.csv"
+    },
+    "save_every": 1000,
+    "plot_every": 1000,
+    "scheduler": {
+      "patience": 20,
+      "cooldown_period": 500,
+      "factor": 0.5,
+      "min_lr": 1e-6
+    },
+    "eval_de": [
+      1.0,
+      1.5,
+      2.0,
+      2.5,
+      3.0,
+      3.5
+    ]
+  }
+}
