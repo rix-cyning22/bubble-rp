@@ -1,6 +1,7 @@
 import numpy as np
 from scipy.integrate import solve_ivp
-
+import matplotlib.pyplot as plt
+from config import load_config
 
 def simulate(De, cfg):
     p, dv, slv = cfg.physical, cfg.derived, cfg.reference_solver
@@ -17,7 +18,7 @@ def simulate(De, cfg):
         R_safe = max(R_hat, 1e-12)
         sr = v_hat / R_safe
 
-        PA_hat = -P_A_hat * cfg.waveform(t_hat)
+        PA_hat = -P_A_hat * cfg.waveform(t_hat, t_end=cfg.domain.t_end)
         Pg_hat = P_g0_hat * (1.0 / R_safe) ** (3.0 * kappa)
 
         v_dot_hat = (1.0 / (I_param * R_safe)) * (
@@ -36,6 +37,14 @@ def simulate(De, cfg):
     return sol.t, sol.y[0], sol.y[1], sol.y[2], sol.y[3]
 
 
-def simulate_states(De, cfg):
+def simulate_states(De, cfg, plot=False):
     t, *states = simulate(De, cfg)
+    if plot:
+        plt.plot(t, states[0])
+        plt.title(f"De={De}")
+        plt.show()
     return t, np.stack(states, axis=1)
+
+
+if __name__ == "__main__":
+    simulate_states(3.5, load_config(), plot=True)

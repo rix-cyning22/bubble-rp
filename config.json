@@ -30,13 +30,13 @@
   "model": {
     "hidden_dim": 64,
     "num_layers": 3,
-    "num_freqs": 64,
+    "num_freqs": 32,
     "sigma": 3.0,
     "num_de_freqs": 32,
     "sigma_de": 2.0
   },
   "training": {
-    "epochs": 3000,
+    "epochs": 5000,
     "lr": 1.2e-3,
     "collocation_points": 20000,
     "data_batch": 32768,
@@ -44,8 +44,9 @@
     "grad_clip": 1.0,
     "r_floor": 1e-5,
     "checkpoint": {
-      "model": "pinn_model.pt",
-      "metrics": "metrics.csv"
+      "model": "./pinn_model.pt",
+      "metrics": "./metrics.csv",
+      "losses": "./losses.csv"
     },
     "save_every": 1000,
     "plot_every": 1000,

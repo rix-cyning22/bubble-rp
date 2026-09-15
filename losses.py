@@ -22,7 +22,7 @@ def physics_residuals(model, t, De, params, r_floor=1e-5):
 
     res_1 = R_t - v
 
-    term1 = P_g0 * (R_safe ** (-3 * kappa)) - 1.0 + P_A * params['waveform'](t)
+    term1 = P_g0 * (R_safe ** (-3 * kappa)) - 1.0 + P_A * params['waveform'](t, params["t_end"])
     term2 = - (gamma / R_safe) + (tau_rr - tau_th)
     res_2 = (v_t * R_safe) - (1.0 / I) * (term1 + term2) + 0.5 * (v**2)
 

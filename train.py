@@ -6,7 +6,7 @@ from tqdm.auto import tqdm
 from config import load_config, pde_params, describe, DEFAULT_CONFIG
 from data import anchor_tensors, sample_De
 from losses import compute_loss
-from model import build_model, save_checkpoint
+from model import build_model, save_model
 from optim import build_scheduler, pick_device
 from plotting import plot_R_panels, plot_loss_curves
 
@@ -21,10 +21,6 @@ def parse_args():
     ap.add_argument("--show", action="store_true", help="also open plot windows")
     return ap.parse_args()
 
-def save_checkpoint(model, losses):
-    # write this here
-    pass
-
 
 def main():
     args = parse_args()
@@ -32,7 +28,7 @@ def main():
     tr = cfg.training
 
     epochs = args.epochs or tr.epochs
-    ckpt_path = args.checkpoint or tr.checkpoint
+    ckpt_path = args.checkpoint or tr.checkpoint.model
     save_every = args.save_every or tr.save_every
     plot_every = args.plot_every or tr.plot_every
 
@@ -85,7 +81,7 @@ def main():
 
             done = epoch + 1
             if done % save_every == 0:
-                save_checkpoint(model, ckpt_path, cfg=cfg, epoch=done, loss=loss.item())
+                save_model(model, ckpt_path, cfg=cfg, epoch=done, loss=loss.item())
 
             if done % plot_every == 0:
                 figs = [
@@ -97,7 +93,7 @@ def main():
                 for f in figs:
                     plt.close(f)
 
-    save_checkpoint(model, ckpt_path, cfg=cfg, epoch=epochs, loss=total_losses[-1] if total_losses else None)
+    save_model(model, ckpt_path, cfg=cfg, epoch=epochs, loss=total_losses[-1] if total_losses else None)
 
 
 if __name__ == "__main__":

@@ -44,6 +44,7 @@ def pde_params(cfg):
         'kappa': cfg.physical.kappa,
         'eta_P0_f': dv.eta_P0_f,
         'waveform': cfg.waveform,
+        "t_end": cfg.domain.t_end
     }
 
 
