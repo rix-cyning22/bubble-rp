@@ -23,8 +23,8 @@
     "atol": 1e-8
   },
   "data": {
-    "anchor_step_low": 0.0125,
-    "anchor_step_high": 0.025,
+    "anchor_step_low": 0.05,
+    "anchor_step_high": 0.05,
     "amp_floor": 0.05
   },
   "model": {
