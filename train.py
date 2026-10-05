@@ -2,20 +2,21 @@ import argparse
 import matplotlib.pyplot as plt
 import torch
 from tqdm.auto import tqdm
-
+import os
 from config import load_config, pde_params, describe, DEFAULT_CONFIG
 from data import anchor_tensors, sample_De
-from losses import compute_loss
+from losses import compute_loss, save_losses
 from model import build_model, save_model
 from optim import build_scheduler, pick_device
 from plotting import plot_R_panels, plot_loss_curves
+from metrics import save_metrics
 
 def parse_args():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("--epochs", type=int, help="override config training.epochs")
-    ap.add_argument("--checkpoint", help="override config training.checkpoint")
+    ap.add_argument("--checkpoint", help="override config training.checkpoint_path")
     ap.add_argument("--save-every", type=int, help="override config training.save_every")
     ap.add_argument("--plot-every", type=int, help="override config training.plot_every")
     ap.add_argument("--show", action="store_true", help="also open plot windows")
@@ -28,7 +29,11 @@ def main():
     tr = cfg.training
 
     epochs = args.epochs or tr.epochs
-    ckpt_path = args.checkpoint or tr.checkpoint.model
+    ckpt_path = args.checkpoint or tr.checkpoint_path
+    os.makedirs(ckpt_path, exist_ok=True)
+    model_path = os.path.join(ckpt_path, "model.pt")
+    losses_path = os.path.join(ckpt_path, "losses.csv")
+    metrics_path = os.path.join(ckpt_path, "metrics.csv")
     save_every = args.save_every or tr.save_every
     plot_every = args.plot_every or tr.plot_every
 
@@ -48,52 +53,77 @@ def main():
 
     pde_losses, data_losses, total_losses = [], [], []
 
-    with tqdm(range(epochs), desc="Training parametric PINN") as pbar:
-        for epoch in pbar:
-            optimizer.zero_grad()
+    try:
+        with tqdm(range(epochs), desc="Training parametric PINN") as pbar:
+            for epoch in pbar:
+                optimizer.zero_grad()
 
-            t_physics = (torch.rand(tr.collocation_points, 1, device=device)
-                         * cfg.domain.t_end).requires_grad_(True)
-            De_physics = sample_De(tr.collocation_points, device, cfg)
-            idx = torch.randint(0, n_data, (tr.data_batch,), device=device)
+                t_physics = (torch.rand(tr.collocation_points, 1, device=device)
+                             * cfg.domain.t_end).requires_grad_(True)
+                De_physics = sample_De(tr.collocation_points, device, cfg)
+                idx = torch.randint(0, n_data, (tr.data_batch,), device=device)
 
-            loss, loss_pde, loss_data = compute_loss(
-                model, t_physics, De_physics,
-                t_data[idx], De_data[idx], y_data[idx], amp_data[idx],
-                params, data_weight=tr.data_weight, r_floor=tr.r_floor,
-            )
+                loss, loss_pde, loss_data = compute_loss(
+                    model, t_physics, De_physics,
+                    t_data[idx], De_data[idx], y_data[idx], amp_data[idx],
+                    params, data_weight=tr.data_weight, r_floor=tr.r_floor,
+                )
 
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=tr.grad_clip)
-            optimizer.step()
-            scheduler.step(loss.item())
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=tr.grad_clip)
+                optimizer.step()
+                scheduler.step(loss.item())
 
-            pde_losses.append(loss_pde)
-            data_losses.append(loss_data)
-            total_losses.append(loss.item())
+                pde_losses.append(loss_pde)
+                data_losses.append(loss_data)
+                total_losses.append(loss.item())
 
-            pbar.set_postfix({
-                'Total': f"{loss.item():.4e}",
-                'PDE': f"{loss_pde:.4e}",
-                'Data': f"{loss_data:.4e}",
-                'LR': f"{scheduler.get_lr():.3e}",
-            })
+                pbar.set_postfix({
+                    'Total': f"{loss.item():.4e}",
+                    'PDE': f"{loss_pde:.4e}",
+                    'Data': f"{loss_data:.4e}",
+                    'LR': f"{scheduler.get_lr():.3e}",
+                })
 
-            done = epoch + 1
-            if done % save_every == 0:
-                save_model(model, ckpt_path, cfg=cfg, epoch=done, loss=loss.item())
+                done = epoch + 1
+                if done % save_every == 0:
+                    with torch.no_grad():
+                        states = model(t_data, De_data).detach().cpu()
+                    save_model(
+                        model, model_path, cfg=cfg, epoch=done, loss=loss.item(),
+                        t=t_data.detach().cpu(), De=De_data.detach().cpu(),
+                        R=states[:, 0:1], v=states[:, 1:2],
+                        tau_rr=states[:, 2:3], tau_tt=states[:, 3:4],
+                    )
 
-            if done % plot_every == 0:
-                figs = [
-                    plot_R_panels(model, cfg, device, out_path=f"epoch_{done}_R.png", epoch=done),
-                    plot_loss_curves(pde_losses, data_losses, out_path=f"epoch_{done}_loss.png", epoch=done),
-                ]
-                if args.show:
-                    plt.show()
-                for f in figs:
-                    plt.close(f)
-
-    save_model(model, ckpt_path, cfg=cfg, epoch=epochs, loss=total_losses[-1] if total_losses else None)
+                if done % plot_every == 0:
+                    plot_path = os.path.join(ckpt_path, f"epoch_{done}")
+                    os.makedirs(plot_path, exist_ok=True)
+                    figs = [
+                        plot_R_panels(model, cfg, device, out_path=os.path.join(plot_path, "R.png"), epoch=done),
+                        plot_loss_curves(pde_losses, data_losses, out_path=os.path.join(plot_path, "loss.png"), epoch=done),
+                    ]
+                    if args.show:
+                        plt.show()
+                    for f in figs:
+                        plt.close(f)
+    finally:
+        save_losses(pde_losses, data_losses, losses_path, total_losses=total_losses)
+        with torch.no_grad():
+            states = model(t_data, De_data).detach().cpu()
+        save_metrics(
+            t_data.detach().cpu().numpy().squeeze(),
+            states[:, 0].numpy(), states[:, 1].numpy(),
+            states[:, 2].numpy(), states[:, 3].numpy(),
+            savepath=metrics_path, velocity_name="u",
+        )
+        save_model(
+            model, model_path, cfg=cfg, epoch=len(total_losses),
+            loss=total_losses[-1] if total_losses else None,
+            t=t_data.detach().cpu(), De=De_data.detach().cpu(),
+            R=states[:, 0:1], v=states[:, 1:2],
+            tau_rr=states[:, 2:3], tau_tt=states[:, 3:4],
+        )
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import pandas as pd
-
+import os
 from ode import simulate_states
 
 CHANNELS = [
@@ -25,7 +25,7 @@ def predict(model, t_np, de_val, device):
     return model(t, torch.full_like(t, float(de_val))).cpu().numpy()
 
 
-def evaluate_at_de(model, cfg, device, de_val):
+def evaluate_at_de(model, cfg, device, de_val, savepath=None):
     was_training = model.training
     model.eval()
     t, y_true = simulate_states(de_val, cfg)
@@ -35,6 +35,9 @@ def evaluate_at_de(model, cfg, device, de_val):
 
     errors = [relative_l2(y_pred[:, c], y_true[:, c], channel=c)
               for c, _, _ in CHANNELS]
+    if savepath is not None:
+        save_metrics(t, *y_pred, savepath=os.path.join(savepath, "pred.csv"))
+        save_metrics(t, *y_true, savepath=os.path.join(savepath, "true.csv"))
     return t, y_true, y_pred, errors
 
 
@@ -51,10 +54,11 @@ def r_errors(model, cfg, device, de_values, t_max=None):
         model.train()
     return out
 
-def save_metrics(R, v, tau_rr, tau_tt, savepath="./metrics.csv"):
+def save_metrics(t, R, v, tau_rr, tau_tt, savepath="./metrics.csv", velocity_name="v"):
     df = pd.DataFrame({
+        "t": t,
         "R": R,
-        "v": v,
+        velocity_name: v,
         "tau_rr": tau_rr,
         "tau_tt": tau_tt
     })

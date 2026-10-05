@@ -57,9 +57,11 @@ def residual_scales(params, de_ref=2.0, device=None):
     ], device=device)
 
 
-def save_losses(pde_losses, data_losses, savepath):
+def save_losses(pde_losses, data_losses, savepath, total_losses=None):
     df = pd.DataFrame({
         "pde": pde_losses,
-        "data": data_losses
+        "data": data_losses,
     })
+    if total_losses is not None:
+        df["total"] = total_losses
     df.to_csv(savepath)

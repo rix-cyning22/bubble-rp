@@ -6,7 +6,7 @@ from config import load_config, DEFAULT_CONFIG
 from metrics import CHANNELS, evaluate_at_de
 from model import load_checkpoint, n_params
 from optim import pick_device
-from plotting import plot_all_states
+from plotting import plot_all_states, plot_just_R
 
 
 def parse_args():
@@ -18,12 +18,13 @@ def parse_args():
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("--out-dir", default=".")
     ap.add_argument("--show", action="store_true", help="open an interactive window")
+    ap.add_argument("--plot_all_states", default=False, help="plot all states (default: only R)")
     return ap.parse_args()
 
 
 def main():
     args = parse_args()
-
+    print(args.plot_all_states)
     if not os.path.exists(args.model):
         raise SystemExit(f"checkpoint not found: {args.model}")
     os.makedirs(args.out_dir, exist_ok=True)
@@ -53,7 +54,8 @@ def main():
 
         tag = f"{de_val:.3f}".replace(".", "p")
         out_path = os.path.join(args.out_dir, f"eval_De_{tag}.png")
-        figs.append(plot_all_states(t, y_true, y_pred, de_val, out_path))
+        plot_fn = plot_all_states if args.plot_all_states else plot_just_R
+        figs.append(plot_fn(t, y_true, y_pred, de_val, out_path))
         print(f"saved {out_path}")
 
     if args.show:
