@@ -49,11 +49,14 @@ def main():
 
     figs = []
     for de_val in args.de:
-        t, y_true, y_pred, errors = evaluate_at_de(model, cfg, device, de_val)
+        tag = f"{de_val:.3f}".replace(".", "p")
+        de_dir = os.path.join(args.out_dir, f"eval_{tag}")
+        os.makedirs(de_dir, exist_ok=True)
+        t, y_true, y_pred, errors = evaluate_at_de(
+            model, cfg, device, de_val, savepath=de_dir)
         print(f"{de_val:>7.3f}  " + "  ".join(f"{e*100:11.2f}%" for e in errors))
 
-        tag = f"{de_val:.3f}".replace(".", "p")
-        out_path = os.path.join(args.out_dir, f"eval_De_{tag}.png")
+        out_path = os.path.join(de_dir, f"eval_{tag}.eps")
         plot_fn = plot_all_states if args.plot_all_states else plot_just_R
         figs.append(plot_fn(t, y_true, y_pred, de_val, out_path))
         print(f"saved {out_path}")

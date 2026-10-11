@@ -2,6 +2,7 @@ import numpy as np
 from scipy.integrate import solve_ivp
 import matplotlib.pyplot as plt
 from config import load_config
+from argparse import ArgumentParser
 
 def simulate(De, cfg):
     p, dv, slv = cfg.physical, cfg.derived, cfg.reference_solver
@@ -47,4 +48,9 @@ def simulate_states(De, cfg, plot=False):
 
 
 if __name__ == "__main__":
-    simulate_states(3.5, load_config(), plot=True)
+    arg = ArgumentParser()
+    arg.add_argument("--de", type=float, default=3.5, help="Deborah number to simulate")
+    arg.add_argument("--config", default=str(load_config()), help="path to config.json")
+    arg.add_argument("--plot", action="store_true", help="plot the results")
+    args = arg.parse_args()
+    simulate_states(args.de, load_config(), plot=args.plot)

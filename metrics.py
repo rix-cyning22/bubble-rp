@@ -36,8 +36,12 @@ def evaluate_at_de(model, cfg, device, de_val, savepath=None):
     errors = [relative_l2(y_pred[:, c], y_true[:, c], channel=c)
               for c, _, _ in CHANNELS]
     if savepath is not None:
-        save_metrics(t, *y_pred, savepath=os.path.join(savepath, "pred.csv"))
-        save_metrics(t, *y_true, savepath=os.path.join(savepath, "true.csv"))
+        save_metrics(
+            t, y_pred[:, 0], y_pred[:, 1], y_pred[:, 2], y_pred[:, 3],
+            savepath=os.path.join(savepath, "pred.csv"))
+        save_metrics(
+            t, y_true[:, 0], y_true[:, 1], y_true[:, 2], y_true[:, 3],
+            savepath=os.path.join(savepath, "true.csv"))
     return t, y_true, y_pred, errors
 
 
