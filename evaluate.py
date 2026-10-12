@@ -16,7 +16,7 @@ def parse_args():
     ap.add_argument("--de", required=True, type=float, nargs="+", metavar="DE",
                     help="one or more Deborah numbers to evaluate")
     ap.add_argument("--config", default=str(DEFAULT_CONFIG))
-    ap.add_argument("--out-dir", default=".")
+    ap.add_argument("--out-dir", default=None)
     ap.add_argument("--show", action="store_true", help="open an interactive window")
     ap.add_argument("--plot_all_states", default=False, help="plot all states (default: only R)")
     return ap.parse_args()
@@ -24,10 +24,11 @@ def parse_args():
 
 def main():
     args = parse_args()
-    print(args.plot_all_states)
     if not os.path.exists(args.model):
         raise SystemExit(f"checkpoint not found: {args.model}")
-    os.makedirs(args.out_dir, exist_ok=True)
+    out_dir = args.out_dir or os.path.join(os.path.dirname(args.model), "eval")
+    os.makedirs(out_dir, exist_ok=True)
+    print(args.plot_all_states)
 
     cfg = load_config(args.config)
     device = pick_device()
@@ -50,16 +51,15 @@ def main():
     figs = []
     for de_val in args.de:
         tag = f"{de_val:.3f}".replace(".", "p")
-        de_dir = os.path.join(args.out_dir, f"eval_{tag}")
+        de_dir = os.path.join(out_dir, f"{tag}")
         os.makedirs(de_dir, exist_ok=True)
         t, y_true, y_pred, errors = evaluate_at_de(
             model, cfg, device, de_val, savepath=de_dir)
         print(f"{de_val:>7.3f}  " + "  ".join(f"{e*100:11.2f}%" for e in errors))
 
-        out_path = os.path.join(de_dir, f"eval_{tag}.eps")
         plot_fn = plot_all_states if args.plot_all_states else plot_just_R
-        figs.append(plot_fn(t, y_true, y_pred, de_val, out_path))
-        print(f"saved {out_path}")
+        figs.append(plot_fn(t, y_true, y_pred, de_val, os.path.join(de_dir, f"eval_{tag}.eps")))
+        figs.append(plot_fn(t, y_true, y_pred, de_val, os.path.join(de_dir, f"eval_{tag}.png")))
 
     if args.show:
         plt.show()

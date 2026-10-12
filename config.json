@@ -1,5 +1,11 @@
 {
-  "waveform": "sine",
+  "waveform": {
+    "name": "sine",
+    "args": [],
+    "kwargs": {
+      "freq": 5.0
+    }
+  },
   "physical": {
     "R0": 1.5e-6,
     "f": 3.0e6,

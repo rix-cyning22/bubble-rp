@@ -1,4 +1,5 @@
 import json
+from functools import partial
 from pathlib import Path
 from types import SimpleNamespace
 import numpy as np
@@ -14,9 +15,13 @@ def _namespace(obj):
     return obj
 
 
+def _call_waveform(function, waveform_args, t, *args, **kwargs):
+    call_kwargs = {**waveform_args['kwargs'], **kwargs}
+    return function(t, *waveform_args['args'], *args, **call_kwargs)
+
+
 def load_config(path=DEFAULT_CONFIG):
-    raw = json.loads(Path(path).read_text())
-    cfg = _namespace(raw)
+    cfg = _namespace(json.loads(Path(path).read_text()))
 
     p, d = cfg.physical, cfg.domain
     gamma_hat = (2.0 * p.gamma) / (p.P0 * p.R0)
@@ -28,9 +33,17 @@ def load_config(path=DEFAULT_CONFIG):
         eta_P0_f=(p.eta * 2.0 * np.pi * p.f) / p.P0,
         t_eval=np.linspace(0.0, d.t_end, d.n_t_eval, dtype=np.float32),
     )
-    cfg.waveform = _waveforms.get(raw.get('waveform', 'sine'))
-    cfg.waveform_name = raw.get('waveform', 'sine')
-    cfg.raw = raw
+    waveform_config = cfg.waveform
+    cfg.waveform_name = waveform_config.name
+    cfg.waveform_add_args = {
+        'args': tuple(waveform_config.args),
+        'kwargs': vars(waveform_config.kwargs),
+    }
+    cfg.waveform = partial(
+        _call_waveform,
+        _waveforms.get(waveform_config.name),
+        cfg.waveform_add_args,
+    )
     return cfg
 
 
@@ -50,7 +63,16 @@ def pde_params(cfg):
 
 def describe(cfg):
     dv = cfg.derived
-    return (f"waveform: {cfg.waveform_name}  |  "
+    waveform_args = [str(value) for value in cfg.waveform_add_args['args']]
+    waveform_args.extend(
+        f"{name}={value}"
+        for name, value in cfg.waveform_add_args['kwargs'].items()
+    )
+    waveform = cfg.waveform_name
+    if waveform_args:
+        waveform += f"({', '.join(waveform_args)})"
+
+    return (f"waveform: {waveform}  |  "
             f"De in [{cfg.domain.de_lo}, {cfg.domain.de_hi}], "
             f"t_hat in [0, {cfg.domain.t_end}]  |  "
             f"P_A={dv.P_A_hat:.3f} gamma={dv.gamma_hat:.3f} "

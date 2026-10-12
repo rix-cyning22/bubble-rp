@@ -1,9 +1,11 @@
 import argparse
+import os
 import matplotlib.pyplot as plt
 import torch
 from tqdm.auto import tqdm
-import os
-from config import load_config, pde_params, describe, DEFAULT_CONFIG
+
+import config
+from waveforms import describe
 from data import anchor_tensors, sample_De
 from losses import compute_loss, save_losses
 from model import build_model, save_model
@@ -11,119 +13,162 @@ from optim import build_scheduler, pick_device
 from plotting import plot_R_panels, plot_loss_curves
 from metrics import save_metrics
 
+
+
 def parse_args():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--config", default=str(DEFAULT_CONFIG))
-    ap.add_argument("--epochs", type=int, help="override config training.epochs")
-    ap.add_argument("--checkpoint", help="override config training.checkpoint_path")
-    ap.add_argument("--save-every", type=int, help="override config training.save_every")
-    ap.add_argument("--plot-every", type=int, help="override config training.plot_every")
-    ap.add_argument("--show", action="store_true", help="also open plot windows")
-    return ap.parse_args()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--config", default=str(config.DEFAULT_CONFIG))
+    parser.add_argument("--epochs", type=int, help="override config training.epochs")
+    parser.add_argument("--checkpoint", help="override config training.checkpoint_path")
+    parser.add_argument("--save-every", type=int, help="override config training.save_every")
+    parser.add_argument("--plot-every", type=int, help="override config training.plot_every")
+    parser.add_argument("--show", action="store_true", help="also open plot windows")
+    return parser.parse_args()
+
+
+def _create_run_directory(checkpoint_root, cfg):
+    run_directory = os.path.join(checkpoint_root, describe(cfg))
+    os.makedirs(run_directory, exist_ok=True)
+    return run_directory
+
+
+def _save_checkpoint(model, cfg, t_metrics, run_directory, epoch, loss_value):
+    epoch_directory = run_directory / f"epoch_{epoch}"
+    epoch_directory.mkdir(parents=True, exist_ok=True)
+    save_model(
+        model, epoch_directory / "model.pt",
+        cfg=cfg, epoch=epoch, loss=loss_value,
+    )
+
+    with torch.no_grad():
+        for de_value in cfg.training.eval_de:
+            de_values = torch.full_like(t_metrics, float(de_value))
+            states = model(t_metrics, de_values).cpu().numpy()
+            de_tag = f"{de_value:g}".replace(".", "p")
+            save_metrics(
+                cfg.derived.t_eval,
+                states[:, 0], states[:, 1], states[:, 2], states[:, 3],
+                savepath=epoch_directory / f"metrics_de_{de_tag}.csv",
+                velocity_name="u",
+            )
+
+
+def _train_step(model, optimizer, scheduler, cfg, params, training_data, device):
+    t_data, de_data, y_data, amp_data = training_data
+    training = cfg.training
+
+    optimizer.zero_grad()
+    t_physics = (torch.rand(training.collocation_points, 1, device=device)
+                 * cfg.domain.t_end).requires_grad_(True)
+    de_physics = sample_De(training.collocation_points, device, cfg)
+    data_indices = torch.randint(0, t_data.shape[0], (training.data_batch,), device=device)
+
+    loss, pde_loss, data_loss = compute_loss(
+        model, t_physics, de_physics,
+        t_data[data_indices], de_data[data_indices],
+        y_data[data_indices], amp_data[data_indices],
+        params, data_weight=training.data_weight, r_floor=training.r_floor,
+    )
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=training.grad_clip)
+    optimizer.step()
+
+    loss_value = loss.item()
+    scheduler.step(loss_value)
+    return loss_value, pde_loss, data_loss
+
+
+def _save_plots(model, cfg, device, run_directory, epoch,
+                pde_losses, data_losses, show):
+    epoch_directory = run_directory / f"epoch_{epoch}"
+    epoch_directory.mkdir(parents=True, exist_ok=True)
+    figures = [
+        plot_R_panels(
+            model, cfg, device,
+            out_path=str(epoch_directory / "R.png"), epoch=epoch,
+        ),
+        plot_loss_curves(
+            pde_losses, data_losses,
+            out_path=str(epoch_directory / "loss.png"), epoch=epoch,
+        ),
+    ]
+    try:
+        if show:
+            plt.show()
+    finally:
+        for figure in figures:
+            plt.close(figure)
+
+
+def train(cfg, args):
+    training = cfg.training
+    epochs = training.epochs if args.epochs is None else args.epochs
+    save_every = training.save_every if args.save_every is None else args.save_every
+    plot_every = training.plot_every if args.plot_every is None else args.plot_every
+    if epochs < 1 or save_every < 1 or plot_every < 1:
+        raise ValueError("epochs, save_every, and plot_every must be positive")
+
+    run_directory = _create_run_directory(
+        args.checkpoint or training.checkpoint_path, cfg,
+    )
+    torch.set_default_dtype(torch.float32)
+    device = pick_device()
+    print(f"device: {device}")
+    print(config.describe(cfg))
+
+    training_data = anchor_tensors(cfg, device)
+    model = build_model(cfg, device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=training.lr)
+    scheduler = build_scheduler(optimizer, cfg)
+    params = config.pde_params(cfg)
+    t_metrics = torch.tensor(
+        cfg.derived.t_eval, dtype=torch.float32, device=device,
+    ).view(-1, 1)
+
+    pde_losses, data_losses, total_losses = [], [], []
+    try:
+        progress = tqdm(range(epochs), desc="Training parametric PINN")
+        with progress:
+            for step in progress:
+                total_loss, pde_loss, data_loss = _train_step(
+                    model, optimizer, scheduler, cfg, params, training_data, device,
+                )
+                total_losses.append(total_loss)
+                pde_losses.append(pde_loss)
+                data_losses.append(data_loss)
+                progress.set_postfix({
+                    "Total": f"{total_loss:.4e}",
+                    "PDE": f"{pde_loss:.4e}",
+                    "Data": f"{data_loss:.4e}",
+                    "LR": f"{scheduler.get_lr():.3e}",
+                })
+
+                epoch = step + 1
+                if epoch % save_every == 0:
+                    _save_checkpoint(
+                        model, cfg, t_metrics, run_directory, epoch, total_loss,
+                    )
+                if epoch % plot_every == 0:
+                    _save_plots(
+                        model, cfg, device, run_directory, epoch,
+                        pde_losses, data_losses, args.show,
+                    )
+    finally:
+        save_losses(
+            pde_losses, data_losses, run_directory / "losses.csv",
+            total_losses=total_losses,
+        )
+        completed_epochs = len(total_losses)
+        if completed_epochs == 0 or completed_epochs % save_every != 0:
+            _save_checkpoint(
+                model, cfg, t_metrics, run_directory, completed_epochs,
+                total_losses[-1] if total_losses else None,
+            )
 
 
 def main():
     args = parse_args()
-    cfg = load_config(args.config)
-    tr = cfg.training
-
-    epochs = args.epochs or tr.epochs
-    ckpt_path = args.checkpoint or tr.checkpoint_path
-    os.makedirs(ckpt_path, exist_ok=True)
-    model_path = os.path.join(ckpt_path, "model.pt")
-    losses_path = os.path.join(ckpt_path, "losses.csv")
-    metrics_path = os.path.join(ckpt_path, "metrics.csv")
-    save_every = args.save_every or tr.save_every
-    plot_every = args.plot_every or tr.plot_every
-
-    torch.set_default_dtype(torch.float32)
-    device = pick_device()
-    print(f"device: {device}")
-    print(describe(cfg))
-
-    t_data, De_data, y_data, amp_data = anchor_tensors(cfg, device)
-    n_data = t_data.shape[0]
-
-    model = build_model(cfg, device)
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=tr.lr)
-    scheduler = build_scheduler(optimizer, cfg)
-    params = pde_params(cfg)
-
-    pde_losses, data_losses, total_losses = [], [], []
-
-    try:
-        with tqdm(range(epochs), desc="Training parametric PINN") as pbar:
-            for epoch in pbar:
-                optimizer.zero_grad()
-
-                t_physics = (torch.rand(tr.collocation_points, 1, device=device)
-                             * cfg.domain.t_end).requires_grad_(True)
-                De_physics = sample_De(tr.collocation_points, device, cfg)
-                idx = torch.randint(0, n_data, (tr.data_batch,), device=device)
-
-                loss, loss_pde, loss_data = compute_loss(
-                    model, t_physics, De_physics,
-                    t_data[idx], De_data[idx], y_data[idx], amp_data[idx],
-                    params, data_weight=tr.data_weight, r_floor=tr.r_floor,
-                )
-
-                loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=tr.grad_clip)
-                optimizer.step()
-                scheduler.step(loss.item())
-
-                pde_losses.append(loss_pde)
-                data_losses.append(loss_data)
-                total_losses.append(loss.item())
-
-                pbar.set_postfix({
-                    'Total': f"{loss.item():.4e}",
-                    'PDE': f"{loss_pde:.4e}",
-                    'Data': f"{loss_data:.4e}",
-                    'LR': f"{scheduler.get_lr():.3e}",
-                })
-
-                done = epoch + 1
-                if done % save_every == 0:
-                    with torch.no_grad():
-                        states = model(t_data, De_data).detach().cpu()
-                    save_model(
-                        model, model_path, cfg=cfg, epoch=done, loss=loss.item(),
-                        t=t_data.detach().cpu(), De=De_data.detach().cpu(),
-                        R=states[:, 0:1], v=states[:, 1:2],
-                        tau_rr=states[:, 2:3], tau_tt=states[:, 3:4],
-                    )
-
-                if done % plot_every == 0:
-                    plot_path = os.path.join(ckpt_path, f"epoch_{done}")
-                    os.makedirs(plot_path, exist_ok=True)
-                    figs = [
-                        plot_R_panels(model, cfg, device, out_path=os.path.join(plot_path, "R.png"), epoch=done),
-                        plot_loss_curves(pde_losses, data_losses, out_path=os.path.join(plot_path, "loss.png"), epoch=done),
-                    ]
-                    if args.show:
-                        plt.show()
-                    for f in figs:
-                        plt.close(f)
-    finally:
-        save_losses(pde_losses, data_losses, losses_path, total_losses=total_losses)
-        with torch.no_grad():
-            states = model(t_data, De_data).detach().cpu()
-        save_metrics(
-            t_data.detach().cpu().numpy().squeeze(),
-            states[:, 0].numpy(), states[:, 1].numpy(),
-            states[:, 2].numpy(), states[:, 3].numpy(),
-            savepath=metrics_path, velocity_name="u",
-        )
-        save_model(
-            model, model_path, cfg=cfg, epoch=len(total_losses),
-            loss=total_losses[-1] if total_losses else None,
-            t=t_data.detach().cpu(), De=De_data.detach().cpu(),
-            R=states[:, 0:1], v=states[:, 1:2],
-            tau_rr=states[:, 2:3], tau_tt=states[:, 3:4],
-        )
+    train(config.load_config(args.config), args)
 
 
 if __name__ == "__main__":
