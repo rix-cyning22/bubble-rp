@@ -1,6 +1,8 @@
 import numpy as np
 import torch
 from tqdm.auto import tqdm
+import multiprocessing
+from functools import partial
 
 from ode import simulate_states
 
@@ -17,16 +19,19 @@ def generate_anchor_data(cfg, progress=True):
     des = anchor_des(cfg)
     t_list, de_list, y_list, amp_list = [], [], [], []
 
-    bar = tqdm(des, desc="Generating anchor data", disable=not progress)
-    for de_val in bar:
-        t_np, y_np = simulate_states(de_val, cfg)
-        t_list.append(t_np)
-        de_list.append(np.full_like(t_np, de_val))
-        y_list.append(y_np)
-        amp_list.append(np.broadcast_to(
-            np.maximum(y_np.std(axis=0), cfg.data.amp_floor), y_np.shape).copy())
-        bar.set_postfix({'De': f"{de_val:.3f}"})
-    bar.close()
+    workers = min(len(des), multiprocessing.cpu_count())
+    simulate = partial(simulate_states, cfg=cfg)
+    with multiprocessing.Pool(processes=workers) as pool:
+        results = pool.imap(simulate, des)
+        bar = tqdm(zip(des, results), total=len(des), desc="Generating data",
+                   disable=not progress)
+        for de_val, (t_np, y_np) in bar:
+            t_list.append(t_np)
+            de_list.append(np.full_like(t_np, de_val))
+            y_list.append(y_np)
+            amp_list.append(np.broadcast_to(
+                np.maximum(y_np.std(axis=0), cfg.data.amp_floor), y_np.shape).copy())
+            bar.set_postfix({'De': f"{de_val:.3f}"})
 
     return (np.concatenate(t_list), np.concatenate(de_list),
             np.concatenate(y_list), np.concatenate(amp_list))

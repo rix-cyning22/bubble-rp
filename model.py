@@ -101,4 +101,4 @@ def load_checkpoint(path, device="cpu"):
     model = Model(**ckpt['arch']).to(device)
     model.load_state_dict(ckpt['state_dict'])
     model.eval()
-    return model, ckpt
+    return model, ckpt.get("metadata", {}).get("cfg")

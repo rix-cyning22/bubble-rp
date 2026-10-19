@@ -1,8 +1,6 @@
 import argparse
 import os
 import matplotlib.pyplot as plt
-
-from config import load_config, DEFAULT_CONFIG
 from metrics import CHANNELS, evaluate_at_de
 from model import load_checkpoint, n_params
 from optim import pick_device
@@ -10,12 +8,10 @@ from plotting import plot_all_states, plot_just_R
 
 
 def parse_args():
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap = argparse.ArgumentParser()
     ap.add_argument("--model", required=True, help="path to a .pt checkpoint")
     ap.add_argument("--de", required=True, type=float, nargs="+", metavar="DE",
                     help="one or more Deborah numbers to evaluate")
-    ap.add_argument("--config", default=str(DEFAULT_CONFIG))
     ap.add_argument("--out-dir", default=None)
     ap.add_argument("--show", action="store_true", help="open an interactive window")
     ap.add_argument("--plot_all_states", default=False, help="plot all states (default: only R)")
@@ -29,14 +25,12 @@ def main():
     out_dir = args.out_dir or os.path.join(os.path.dirname(args.model), "eval")
     os.makedirs(out_dir, exist_ok=True)
     print(args.plot_all_states)
-
-    cfg = load_config(args.config)
     device = pick_device()
-    model, ckpt = load_checkpoint(args.model, device)
+    model, cfg = load_checkpoint(args.model, device)
 
     lo, hi = model.de_lo, model.de_hi
     print(f"loaded {args.model}")
-    print(f"  trained {ckpt.get('epoch', '?')} epochs, {n_params(model):,} params")
+    print(f"  {n_params(model):,} params")
     print(f"  valid De range: [{lo}, {hi}]   device: {device}")
 
     outside = [d for d in args.de if not (lo <= d <= hi)]

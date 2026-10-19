@@ -18,10 +18,11 @@ def square(t, *args, **kwargs):
     num_harmonics = kwargs.get(
         'num_harmonics', args[0] if args else 15,
     )
+    freq = kwargs.get('freq', 3.0)
     if t_end <= 0 or num_harmonics < 1:
         raise ValueError("t_end and num_harmonics must be positive")
 
-    fundamental_freq = 3.0 / t_end
+    fundamental_freq = freq / t_end
     result = 0.0
     for i in range(num_harmonics):
         n = 2 * i + 1 

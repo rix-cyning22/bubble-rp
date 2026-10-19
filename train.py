@@ -33,10 +33,10 @@ def _create_run_directory(checkpoint_root, cfg):
 
 
 def _save_checkpoint(model, cfg, t_metrics, run_directory, epoch, loss_value):
-    epoch_directory = run_directory / f"epoch_{epoch}"
-    epoch_directory.mkdir(parents=True, exist_ok=True)
+    epoch_directory = os.path.join(run_directory, f"epoch_{epoch}")
+    os.makedirs(epoch_directory, exist_ok=True)
     save_model(
-        model, epoch_directory / "model.pt",
+        model, os.path.join(epoch_directory, "model.pt"),
         cfg=cfg, epoch=epoch, loss=loss_value,
     )
 
@@ -48,7 +48,7 @@ def _save_checkpoint(model, cfg, t_metrics, run_directory, epoch, loss_value):
             save_metrics(
                 cfg.derived.t_eval,
                 states[:, 0], states[:, 1], states[:, 2], states[:, 3],
-                savepath=epoch_directory / f"metrics_de_{de_tag}.csv",
+                savepath=os.path.join(epoch_directory, f"metrics_de_{de_tag}.csv"),
                 velocity_name="u",
             )
 
@@ -80,16 +80,16 @@ def _train_step(model, optimizer, scheduler, cfg, params, training_data, device)
 
 def _save_plots(model, cfg, device, run_directory, epoch,
                 pde_losses, data_losses, show):
-    epoch_directory = run_directory / f"epoch_{epoch}"
-    epoch_directory.mkdir(parents=True, exist_ok=True)
+    epoch_directory = os.path.join(run_directory, f"epoch_{epoch}")
+    os.makedirs(epoch_directory, exist_ok=True)
     figures = [
         plot_R_panels(
             model, cfg, device,
-            out_path=str(epoch_directory / "R.png"), epoch=epoch,
+            out_path=os.path.join(epoch_directory, "R.png"), epoch=epoch,
         ),
         plot_loss_curves(
             pde_losses, data_losses,
-            out_path=str(epoch_directory / "loss.png"), epoch=epoch,
+            out_path=os.path.join(epoch_directory, "loss.png"), epoch=epoch,
         ),
     ]
     try:
@@ -127,7 +127,7 @@ def train(cfg, args):
 
     pde_losses, data_losses, total_losses = [], [], []
     try:
-        progress = tqdm(range(epochs), desc="Training parametric PINN")
+        progress = tqdm(range(epochs), desc="Training")
         with progress:
             for step in progress:
                 total_loss, pde_loss, data_loss = _train_step(
@@ -155,7 +155,7 @@ def train(cfg, args):
                     )
     finally:
         save_losses(
-            pde_losses, data_losses, run_directory / "losses.csv",
+            pde_losses, data_losses, os.path.join(run_directory, "losses.csv"),
             total_losses=total_losses,
         )
         completed_epochs = len(total_losses)

@@ -1,9 +1,11 @@
 {
   "waveform": {
-    "name": "sine",
+    "name": "sawtooth",
     "args": [],
     "kwargs": {
-      "freq": 5.0
+      "num_harmonics": 1200,
+      "t_end": 9.0,
+      "freq": 4.0
     }
   },
   "physical": {
@@ -21,7 +23,7 @@
     "n_t_eval": 1500,
     "de_lo": 1.0,
     "de_hi": 4.0,
-    "de_steep": 1.6
+    "de_steep": 3.0
   },
   "reference_solver": {
     "method": "Radau",
@@ -30,19 +32,19 @@
   },
   "data": {
     "anchor_step_low": 0.05,
-    "anchor_step_high": 0.05,
+    "anchor_step_high": 0.025,
     "amp_floor": 0.05
   },
   "model": {
     "hidden_dim": 64,
-    "num_layers": 3,
+    "num_layers": 4,
     "num_freqs": 32,
     "sigma": 3.0,
     "num_de_freqs": 32,
     "sigma_de": 2.0
   },
   "training": {
-    "epochs": 5000,
+    "epochs": 7000,
     "lr": 1.2e-3,
     "collocation_points": 20000,
     "data_batch": 32768,
