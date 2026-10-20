@@ -1,4 +1,4 @@
-import argparse
+from argparse import ArgumentParser
 import os
 import matplotlib.pyplot as plt
 import torch
@@ -16,7 +16,7 @@ from metrics import save_metrics
 
 
 def parse_args():
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     parser.add_argument("--config", default=str(config.DEFAULT_CONFIG))
     parser.add_argument("--epochs", type=int, help="override config training.epochs")
     parser.add_argument("--checkpoint", help="override config training.checkpoint_path")
@@ -100,7 +100,7 @@ def _save_plots(model, cfg, device, run_directory, epoch,
             plt.close(figure)
 
 
-def train(cfg, args):
+def train(cfg, args, desc=None, save=True):
     training = cfg.training
     epochs = training.epochs if args.epochs is None else args.epochs
     save_every = training.save_every if args.save_every is None else args.save_every
@@ -108,8 +108,9 @@ def train(cfg, args):
     if epochs < 1 or save_every < 1 or plot_every < 1:
         raise ValueError("epochs, save_every, and plot_every must be positive")
 
-    run_directory = _create_run_directory(
-        args.checkpoint or training.checkpoint_path, cfg,
+    run_directory = (
+        _create_run_directory(args.checkpoint or training.checkpoint_path, cfg)
+        if save else None
     )
     torch.set_default_dtype(torch.float32)
     device = pick_device()
@@ -127,7 +128,7 @@ def train(cfg, args):
 
     pde_losses, data_losses, total_losses = [], [], []
     try:
-        progress = tqdm(range(epochs), desc="Training")
+        progress = tqdm(range(epochs), desc=desc or "Training")
         with progress:
             for step in progress:
                 total_loss, pde_loss, data_loss = _train_step(
@@ -144,26 +145,28 @@ def train(cfg, args):
                 })
 
                 epoch = step + 1
-                if epoch % save_every == 0:
+                if save and epoch % save_every == 0:
                     _save_checkpoint(
                         model, cfg, t_metrics, run_directory, epoch, total_loss,
                     )
-                if epoch % plot_every == 0:
+                if save and epoch % plot_every == 0:
                     _save_plots(
                         model, cfg, device, run_directory, epoch,
                         pde_losses, data_losses, args.show,
                     )
     finally:
-        save_losses(
-            pde_losses, data_losses, os.path.join(run_directory, "losses.csv"),
-            total_losses=total_losses,
-        )
-        completed_epochs = len(total_losses)
-        if completed_epochs == 0 or completed_epochs % save_every != 0:
-            _save_checkpoint(
-                model, cfg, t_metrics, run_directory, completed_epochs,
-                total_losses[-1] if total_losses else None,
+        if save:
+            save_losses(
+                pde_losses, data_losses, os.path.join(run_directory, "losses.csv"),
+                total_losses=total_losses,
             )
+            completed_epochs = len(total_losses)
+            if completed_epochs == 0 or completed_epochs % save_every != 0:
+                _save_checkpoint(
+                    model, cfg, t_metrics, run_directory, completed_epochs,
+                    total_losses[-1] if total_losses else None,
+                )
+    return model
 
 
 def main():

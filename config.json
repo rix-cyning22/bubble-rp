@@ -3,8 +3,6 @@
     "name": "sine",
     "args": [],
     "kwargs": {
-      "num_harmonics": 1200,
-      "t_end": 9.0,
       "freq": 4.0
     }
   },
@@ -37,14 +35,14 @@
   },
   "model": {
     "hidden_dim": 64,
-    "num_layers": 4,
+    "num_layers": 3,
     "num_freqs": 32,
     "sigma": 3.0,
     "num_de_freqs": 32,
     "sigma_de": 2.0
   },
   "training": {
-    "epochs": 7000,
+    "epochs": 2000,
     "lr": 1.2e-3,
     "collocation_points": 20000,
     "data_batch": 32768,
@@ -52,8 +50,8 @@
     "grad_clip": 1.0,
     "r_floor": 1e-5,
     "checkpoint_path": "./checkpoints",
-    "save_every": 1000,
-    "plot_every": 1000,
+    "save_every": 2000,
+    "plot_every": 2000,
     "scheduler": {
       "patience": 20,
       "cooldown_period": 500,
@@ -68,5 +66,18 @@
       3.5,
       4.0
     ]
+  },
+  "fft_data_generation": {
+    "drive_freq_range": [
+      1.0,
+      4.0
+    ],
+    "de_range": [
+      1.0,
+      4.0
+    ],
+    "num_de": 30,
+    "num_drive_freqs": 30,
+    "save_dir": "fft_data"
   }
 }

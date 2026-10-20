@@ -1,7 +1,7 @@
 import argparse
 import os
 import matplotlib.pyplot as plt
-from metrics import CHANNELS, evaluate_at_de
+from metrics import CHANNELS, evaluate_at_de, save_radius_comparison
 from model import load_checkpoint, n_params
 from optim import pick_device
 from plotting import plot_all_states, plot_just_R
@@ -12,6 +12,8 @@ def parse_args():
     ap.add_argument("--model", required=True, help="path to a .pt checkpoint")
     ap.add_argument("--de", required=True, type=float, nargs="+", metavar="DE",
                     help="one or more Deborah numbers to evaluate")
+    ap.add_argument("--freq", type=float, default=None,
+                    help="drive frequency for the output CSV filename")
     ap.add_argument("--out-dir", default=None)
     ap.add_argument("--show", action="store_true", help="open an interactive window")
     ap.add_argument("--plot_all_states", default=False, help="plot all states (default: only R)")
@@ -27,6 +29,11 @@ def main():
     print(args.plot_all_states)
     device = pick_device()
     model, cfg = load_checkpoint(args.model, device)
+    frequency = args.freq
+    if frequency is None and cfg is not None:
+        frequency = cfg.waveform_add_args["kwargs"].get("freq")
+    if frequency is None:
+        raise SystemExit("drive frequency unavailable; provide it with --freq")
 
     lo, hi = model.de_lo, model.de_hi
     print(f"loaded {args.model}")
@@ -49,6 +56,10 @@ def main():
         os.makedirs(de_dir, exist_ok=True)
         t, y_true, y_pred, errors = evaluate_at_de(
             model, cfg, device, de_val, savepath=de_dir)
+        save_radius_comparison(
+            t, y_true, y_pred,
+            os.path.join(out_dir, f"data_de_{de_val:g}_f_{frequency:g}.csv"),
+        )
         print(f"{de_val:>7.3f}  " + "  ".join(f"{e*100:11.2f}%" for e in errors))
 
         plot_fn = plot_all_states if args.plot_all_states else plot_just_R

@@ -7,8 +7,7 @@ wheels/
 *.egg-info
 *.csv
 *.eps
-
-# Virtual environments
+*.zip
 .venv
 *.png
 *.pt

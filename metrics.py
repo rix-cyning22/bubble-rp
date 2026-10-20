@@ -45,6 +45,14 @@ def evaluate_at_de(model, cfg, device, de_val, savepath=None):
     return t, y_true, y_pred, errors
 
 
+def save_radius_comparison(t, y_true, y_pred, savepath):
+    pd.DataFrame({
+        "t": t,
+        "R_true": y_true[:, 0],
+        "R_pred": y_pred[:, 0],
+    }).to_csv(savepath, index=False)
+
+
 def r_errors(model, cfg, device, de_values, t_max=None):
     was_training = model.training
     model.eval()
