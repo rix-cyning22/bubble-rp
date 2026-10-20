@@ -44,9 +44,7 @@ if __name__ == "__main__":
     true_freq_list, pred_freq_list = [], []
     with tqdm(de_values, desc="Generating") as pbar:
         for de in de_values:
-            t, y_true, y_pred, _ = evaluate_at_de(
-                model, config, device, de, input_wave=None,
-            )
+            t, y_true, y_pred, _ = evaluate_at_de(model, config, device, de)
             t = torch.tensor(t, device=device)
             R_true = torch.tensor(y_true[:, 0], device=device)
             R_pred = torch.tensor(y_pred[:, 0], device=device)

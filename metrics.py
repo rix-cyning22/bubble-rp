@@ -25,7 +25,7 @@ def predict(model, t_np, de_val, device):
     return model(t, torch.full_like(t, float(de_val))).cpu().numpy()
 
 
-def evaluate_at_de(model, cfg, device, de_val, savepath=None, input_wave=None):
+def evaluate_at_de(model, cfg, device, de_val, savepath=None):
     was_training = model.training
     model.eval()
     t, y_true = simulate_states(de_val, cfg)
