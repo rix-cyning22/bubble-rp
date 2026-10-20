@@ -28,7 +28,7 @@ def predict(model, t_np, de_val, device):
 def evaluate_at_de(model, cfg, device, de_val, savepath=None, input_wave=None):
     was_training = model.training
     model.eval()
-    t, y_true = simulate_states(de_val, cfg, input_wave=input_wave)
+    t, y_true = simulate_states(de_val, cfg)
     y_pred = predict(model, t, de_val, device)
     if was_training:
         model.train()

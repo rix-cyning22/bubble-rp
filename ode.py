@@ -4,14 +4,8 @@ import matplotlib.pyplot as plt
 from config import load_config
 from argparse import ArgumentParser
 
-def prepare_input_wave(cfg):
-    t = np.linspace(0, cfg.domain.t_end, cfg.domain.n_t_eval)
-    return cfg.waveform(t, t_end=cfg.domain.t_end)
-
-def simulate(De, cfg, input_wave=None):
+def simulate(De, cfg):
     p, dv, slv = cfg.physical, cfg.derived, cfg.reference_solver
-    if input_wave is None:
-        input_wave = prepare_input_wave(cfg)
 
     lambda_hat = De / (2.0 * np.pi)
     G_hat = (p.eta * 2.0 * np.pi * p.f / De) / p.P0
@@ -25,7 +19,7 @@ def simulate(De, cfg, input_wave=None):
         R_safe = max(R_hat, 1e-12)
         sr = v_hat / R_safe
 
-        PA_hat = -P_A_hat * input_wave(t_hat)
+        PA_hat = -P_A_hat * cfg.waveform(t_hat, t_end=cfg.domain.t_end)
         Pg_hat = P_g0_hat * (1.0 / R_safe) ** (3.0 * kappa)
 
         v_dot_hat = (1.0 / (I_param * R_safe)) * (
@@ -44,8 +38,8 @@ def simulate(De, cfg, input_wave=None):
     return sol.t, sol.y[0], sol.y[1], sol.y[2], sol.y[3]
 
 
-def simulate_states(De, cfg, plot=False, input_wave=None):
-    t, *states = simulate(De, cfg, input_wave=input_wave)
+def simulate_states(De, cfg, plot=False):
+    t, *states = simulate(De, cfg)
     if plot:
         plt.plot(t, states[0])
         plt.title(f"De={De}")

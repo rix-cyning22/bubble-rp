@@ -1,6 +1,6 @@
 {
   "waveform": {
-    "name": "sawtooth",
+    "name": "sine",
     "args": [],
     "kwargs": {
       "num_harmonics": 1200,
