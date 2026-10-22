@@ -21,7 +21,6 @@ def parse_args():
     parser.add_argument("--epochs", type=int, help="override config training.epochs")
     parser.add_argument("--checkpoint", help="override config training.checkpoint_path")
     parser.add_argument("--save-every", type=int, help="override config training.save_every")
-    parser.add_argument("--plot-every", type=int, help="override config training.plot_every")
     parser.add_argument("--show", action="store_true", help="also open plot windows")
     return parser.parse_args()
 
@@ -54,7 +53,7 @@ def _save_checkpoint(model, cfg, t_metrics, run_directory, epoch, loss_value):
 
 
 def _train_step(model, optimizer, scheduler, cfg, params, training_data, device):
-    t_data, de_data, y_data, amp_data = training_data
+    t_data, de_data, y_data = training_data
     training = cfg.training
 
     optimizer.zero_grad()
@@ -65,8 +64,7 @@ def _train_step(model, optimizer, scheduler, cfg, params, training_data, device)
 
     loss, pde_loss, data_loss = compute_loss(
         model, t_physics, de_physics,
-        t_data[data_indices], de_data[data_indices],
-        y_data[data_indices], amp_data[data_indices],
+        t_data[data_indices], de_data[data_indices], y_data[data_indices],
         params, data_weight=training.data_weight, r_floor=training.r_floor,
     )
     loss.backward()
@@ -104,9 +102,8 @@ def train(cfg, args, desc=None, save=True, tol=None, hits_below_tol=1):
     training = cfg.training
     epochs = training.epochs if args.epochs is None else args.epochs
     save_every = training.save_every if args.save_every is None else args.save_every
-    plot_every = training.plot_every if args.plot_every is None else args.plot_every
-    if epochs < 1 or save_every < 1 or plot_every < 1:
-        raise ValueError("epochs, save_every, and plot_every must be positive")
+    if epochs < 1 or save_every < 1:
+        raise ValueError("epochs and save_every must be positive")
 
     run_directory = (
         _create_run_directory(args.checkpoint or training.checkpoint_path, cfg)
@@ -154,7 +151,6 @@ def train(cfg, args, desc=None, save=True, tol=None, hits_below_tol=1):
                     _save_checkpoint(
                         model, cfg, t_metrics, run_directory, epoch, total_loss,
                     )
-                if save and epoch % plot_every == 0:
                     _save_plots(
                         model, cfg, device, run_directory, epoch,
                         pde_losses, data_losses, args.show,

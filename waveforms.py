@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 def sine(t, *args, **kwargs):
     freq = kwargs.get('freq', args[0] if args else 2.0)
     if isinstance(t, torch.Tensor):
-        return torch.sin(freq * np.pi * t)
+        return torch.sin(2 * freq * np.pi * t)
     return np.sin(2 * freq * np.pi * t)
 
 

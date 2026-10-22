@@ -17,7 +17,7 @@ def anchor_des(cfg):
 
 def generate_anchor_data(cfg, progress=True):
     des = anchor_des(cfg)
-    t_list, de_list, y_list, amp_list = [], [], [], []
+    t_list, de_list, y_list = [], [], []
 
     workers = min(len(des), multiprocessing.cpu_count())
     simulate = partial(simulate_states, cfg=cfg)
@@ -29,20 +29,15 @@ def generate_anchor_data(cfg, progress=True):
             t_list.append(t_np)
             de_list.append(np.full_like(t_np, de_val))
             y_list.append(y_np)
-            amp_list.append(np.broadcast_to(
-                np.maximum(y_np.std(axis=0), cfg.data.amp_floor), y_np.shape).copy())
             bar.set_postfix({'De': f"{de_val:.3f}"})
 
-    return (np.concatenate(t_list), np.concatenate(de_list),
-            np.concatenate(y_list), np.concatenate(amp_list))
+    return np.concatenate(t_list), np.concatenate(de_list), np.concatenate(y_list)
 
 
 def anchor_tensors(cfg, device, progress=True):
-    t, de, y, amp = generate_anchor_data(cfg, progress=progress)
+    t, de, y = generate_anchor_data(cfg, progress=progress)
     as_col = lambda a: torch.tensor(a, dtype=torch.float32, device=device).view(-1, 1)
-    return (as_col(t), as_col(de),
-            torch.tensor(y, dtype=torch.float32, device=device),
-            torch.tensor(amp, dtype=torch.float32, device=device))
+    return as_col(t), as_col(de), torch.tensor(y, dtype=torch.float32, device=device)
 
 
 def sample_De(n, device, cfg):

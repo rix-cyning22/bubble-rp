@@ -8,7 +8,7 @@ CHANNELS = [
     (0, r'$R / R_0$', 'R'),
     (1, r'$\hat{v}$', 'v'),
     (2, r'$\hat{\tau}_{rr}$', 'tau_rr'),
-    (3, r'$\hat{\tau}_{\theta\theta}$', 'tau_theta'),
+    (3, r'$\hat{\tau}_{\theta\theta}$', 'tau_tt'),
 ]
 
 

@@ -36,7 +36,7 @@ def physics_residuals(model, t, De, params, r_floor=1e-5):
     return torch.cat([res_1, res_2, res_3, res_4], dim=1), R
 
 
-def compute_loss(model, t, De, t_data, De_data, y_data, amp_data, params,
+def compute_loss(model, t, De, t_data, De_data, y_data, params,
                  data_weight=1000.0, r_floor=1e-5):
     res, _ = physics_residuals(model, t, De, params, r_floor=r_floor)
 
@@ -44,7 +44,7 @@ def compute_loss(model, t, De, t_data, De_data, y_data, amp_data, params,
     zeros = torch.zeros_like(res[:, 0:1])
     mse_pde = sum(huber(res[:, i:i + 1], zeros) for i in range(res.shape[1]))
     preds_data = model(t_data, De_data)
-    mse_data = torch.mean(((preds_data - y_data) / amp_data) ** 2)
+    mse_data = torch.mean(((preds_data - y_data)) ** 2)
 
     return mse_pde + mse_data * data_weight, mse_pde.item(), mse_data.item()
 

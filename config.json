@@ -3,7 +3,7 @@
     "name": "sine",
     "args": [],
     "kwargs": {
-      "freq": 1.0
+      "freq": 2.0
     }
   },
   "physical": {
@@ -21,7 +21,7 @@
     "n_t_eval": 1500,
     "de_lo": 1.0,
     "de_hi": 4.0,
-    "de_steep": 3.0
+    "de_steep": 1.6
   },
   "reference_solver": {
     "method": "Radau",
@@ -29,29 +29,27 @@
     "atol": 1e-8
   },
   "data": {
-    "anchor_step_low": 0.05,
-    "anchor_step_high": 0.025,
-    "amp_floor": 0.05
+    "anchor_step_low": 0.1,
+    "anchor_step_high": 0.1
   },
   "model": {
     "hidden_dim": 64,
-    "num_layers": 3,
+    "num_layers": 4,
     "num_freqs": 32,
     "sigma": 3.0,
     "num_de_freqs": 32,
     "sigma_de": 2.0
   },
   "training": {
-    "epochs": 7000,
+    "epochs": 3500,
     "lr": 1.2e-3,
-    "collocation_points": 20000,
+    "collocation_points": 2000,
     "data_batch": 32768,
     "data_weight": 1000.0,
     "grad_clip": 1.0,
     "r_floor": 1e-5,
     "checkpoint_path": "./checkpoints",
     "save_every": 1000,
-    "plot_every": 1000,
     "scheduler": {
       "patience": 20,
       "cooldown_period": 625,
@@ -61,8 +59,10 @@
     "eval_de": [
       1.0,
       2.0,
+      2.5,
       3.0,
-      3.5
+      3.5,
+      4.0
     ]
   },
   "fft_data_generation": {
@@ -77,7 +77,7 @@
     "num_de": 20,
     "num_drive_freqs": 20,
     "save_dir": "fft_data",
-    "tolerance": 1.25,
+    "tolerance": 0.1,
     "hits_below_tolerance": 250
   }
 }
