@@ -17,7 +17,7 @@ def main(cfg, args):
 
     for f in frequencies:
         cfg.waveform_add_args["kwargs"]["freq"] = float(f)
-        model = train(cfg, args, desc=f"freq={f:g}", save=False)
+        model = train(cfg, args, desc=f"freq={f:g}", save=False, tol=sweep.tolerance, hits_below_tol=sweep.hits_below_tolerance)
         with tqdm(total=sweep.num_de, desc=f"Evaluating for f={f:g}") as pbar:
             for de in de_values:
                 t, y_true, y_pred, _ = evaluate_at_de(model, cfg, device, float(de))

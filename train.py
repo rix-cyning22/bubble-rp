@@ -100,7 +100,7 @@ def _save_plots(model, cfg, device, run_directory, epoch,
             plt.close(figure)
 
 
-def train(cfg, args, desc=None, save=True):
+def train(cfg, args, desc=None, save=True, tol=None, hits_below_tol=1):
     training = cfg.training
     epochs = training.epochs if args.epochs is None else args.epochs
     save_every = training.save_every if args.save_every is None else args.save_every
@@ -130,6 +130,7 @@ def train(cfg, args, desc=None, save=True):
     try:
         progress = tqdm(range(epochs), desc=desc or "Training")
         with progress:
+            num_hits = 0
             for step in progress:
                 total_loss, pde_loss, data_loss = _train_step(
                     model, optimizer, scheduler, cfg, params, training_data, device,
@@ -143,7 +144,11 @@ def train(cfg, args, desc=None, save=True):
                     "Data": f"{data_loss:.4e}",
                     "LR": f"{scheduler.get_lr():.3e}",
                 })
-
+                if tol is not None and total_loss < tol:
+                    num_hits += 1
+                    if num_hits >= hits_below_tol:
+                        print(f"tolerance already achieved. stopping training")
+                        break
                 epoch = step + 1
                 if save and epoch % save_every == 0:
                     _save_checkpoint(
