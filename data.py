@@ -10,8 +10,8 @@ from ode import simulate_states
 def anchor_des(cfg):
     d = cfg.domain
     return np.concatenate([
-        np.arange(d.de_lo, d.de_steep, cfg.data.anchor_step_low),
-        np.arange(d.de_steep, d.de_hi, cfg.data.anchor_step_high),
+        np.arange(d.de_lo, d.de_steep - cfg.data.anchor_step_low, cfg.data.anchor_step_low),
+        np.arange(d.de_steep, d.de_hi + cfg.data.anchor_step_high, cfg.data.anchor_step_high),
     ])
 
 
@@ -30,7 +30,6 @@ def generate_anchor_data(cfg, progress=True):
             de_list.append(np.full_like(t_np, de_val))
             y_list.append(y_np)
             bar.set_postfix({'De': f"{de_val:.3f}"})
-
     return np.concatenate(t_list), np.concatenate(de_list), np.concatenate(y_list)
 
 

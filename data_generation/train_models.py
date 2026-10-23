@@ -1,12 +1,13 @@
 import os
 import numpy as np
-from metrics import evaluate_at_de, save_radius_comparison
+from metrics import evaluate_at_de
 from optim import pick_device
 from train import parse_args, train
 from tqdm import tqdm
 from config import load_config
 
-def main(cfg, args):
+def main(args):
+    cfg = load_config(args.config)
     sweep = cfg.fft_data_generation
     os.makedirs(sweep.save_dir, exist_ok=True)
     frequencies = np.linspace(*sweep.drive_freq_range, sweep.num_drive_freqs)
@@ -17,18 +18,18 @@ def main(cfg, args):
 
     for f in frequencies:
         cfg.waveform_add_args["kwargs"]["freq"] = float(f)
-        model = train(cfg, args, desc=f"freq={f:g}", save=False, tol=sweep.tolerance, hits_below_tol=sweep.hits_below_tolerance)
+        model = train(args, desc=f"freq={f:g}", save=False, early_stop=sweep.early_stop, early_stop_wait=sweep.early_stop_wait)
         with tqdm(total=sweep.num_de, desc=f"Evaluating for f={f:g}") as pbar:
             for de in de_values:
-                t, y_true, y_pred, _ = evaluate_at_de(model, cfg, device, float(de))
                 fp = os.path.join(
                     sweep.save_dir, 
-                    f"data_de_{str(de).replace('.', "p")}_f_{str(f).replace('.', 'p')}.csv"
+                    f"data_de_{str(de).replace('.', "p")}_f_{str(f).replace('.', 'p')}"
                 )
-                save_radius_comparison(t, y_true, y_pred, fp)
+                os.makedirs(fp, exist_ok=True)
+                evaluate_at_de(model, cfg, device, float(de), fp)
                 pbar.set_postfix({"path": fp})
                 pbar.update(1)
                 
 if __name__ == "__main__":
     args = parse_args()
-    main(load_config(args.config), args)
+    main(args)

@@ -34,17 +34,17 @@
   },
   "model": {
     "hidden_dim": 64,
-    "num_layers": 4,
+    "num_layers": 3,
     "num_freqs": 32,
     "sigma": 3.0,
     "num_de_freqs": 32,
     "sigma_de": 2.0
   },
   "training": {
-    "epochs": 3500,
+    "epochs": 5000,
     "lr": 1.2e-3,
     "collocation_points": 2000,
-    "data_batch": 32768,
+    "data_batch": 4096,
     "data_weight": 1000.0,
     "grad_clip": 1.0,
     "r_floor": 1e-5,
@@ -74,10 +74,10 @@
       1.0,
       4.0
     ],
-    "num_de": 20,
-    "num_drive_freqs": 20,
+    "num_de": 4,
+    "num_drive_freqs": 4,
     "save_dir": "fft_data",
-    "tolerance": 0.1,
-    "hits_below_tolerance": 250
+    "early_stop": 0.7,
+    "early_stop_wait": 125
   }
 }

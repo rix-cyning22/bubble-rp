@@ -2,6 +2,7 @@ import argparse
 import os
 import matplotlib.pyplot as plt
 from metrics import CHANNELS, evaluate_at_de, save_radius_comparison
+import numpy as np
 from model import load_checkpoint, n_params
 from optim import pick_device
 from plotting import plot_all_states, plot_just_R
@@ -48,7 +49,6 @@ def main():
 
     print(f"\n{'De':>7}  " + "  ".join(f"{name:>12}" for _, _, name in CHANNELS))
     print("-" * 63)
-
     figs = []
     for de_val in args.de:
         tag = f"{de_val:.3f}".replace(".", "p")

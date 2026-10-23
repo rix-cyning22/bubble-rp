@@ -31,13 +31,10 @@ def _create_run_directory(checkpoint_root, cfg):
     return run_directory
 
 
-def _save_checkpoint(model, cfg, t_metrics, run_directory, epoch, loss_value):
+def _save_checkpoint(model, cfg, t_metrics, run_directory, epoch):
     epoch_directory = os.path.join(run_directory, f"epoch_{epoch}")
     os.makedirs(epoch_directory, exist_ok=True)
-    save_model(
-        model, os.path.join(epoch_directory, "model.pt"),
-        cfg=cfg, epoch=epoch, loss=loss_value,
-    )
+    save_model(model, os.path.join(epoch_directory, "model.pt"), cfg=cfg)
 
     with torch.no_grad():
         for de_value in cfg.training.eval_de:
@@ -48,14 +45,13 @@ def _save_checkpoint(model, cfg, t_metrics, run_directory, epoch, loss_value):
                 cfg.derived.t_eval,
                 states[:, 0], states[:, 1], states[:, 2], states[:, 3],
                 savepath=os.path.join(epoch_directory, f"metrics_de_{de_tag}.csv"),
-                velocity_name="u",
             )
 
 
 def _train_step(model, optimizer, scheduler, cfg, params, training_data, device):
     t_data, de_data, y_data = training_data
     training = cfg.training
-
+     
     optimizer.zero_grad()
     t_physics = (torch.rand(training.collocation_points, 1, device=device)
                  * cfg.domain.t_end).requires_grad_(True)
@@ -77,17 +73,17 @@ def _train_step(model, optimizer, scheduler, cfg, params, training_data, device)
 
 
 def _save_plots(model, cfg, device, run_directory, epoch,
-                pde_losses, data_losses, show):
+                pde_losses, data_losses, learning_rates, show):
     epoch_directory = os.path.join(run_directory, f"epoch_{epoch}")
     os.makedirs(epoch_directory, exist_ok=True)
     figures = [
         plot_R_panels(
-            model, cfg, device,
-            out_path=os.path.join(epoch_directory, "R.png"), epoch=epoch,
+            model, cfg, device, epoch,
+            out_path=os.path.join(epoch_directory, "R.png") 
         ),
         plot_loss_curves(
-            pde_losses, data_losses,
-            out_path=os.path.join(epoch_directory, "loss.png"), epoch=epoch,
+            pde_losses, [x * cfg.training.data_weight for x in data_losses], learning_rates, epoch,
+            out_path=os.path.join(epoch_directory, "loss.png")
         ),
     ]
     try:
@@ -98,17 +94,17 @@ def _save_plots(model, cfg, device, run_directory, epoch,
             plt.close(figure)
 
 
-def train(cfg, args, desc=None, save=True, tol=None, hits_below_tol=1):
+def train(args, desc=None, save=True, early_stop=None, early_stop_wait=1):
+    cfg = config.load_config(args.config)
     training = cfg.training
     epochs = training.epochs if args.epochs is None else args.epochs
     save_every = training.save_every if args.save_every is None else args.save_every
     if epochs < 1 or save_every < 1:
         raise ValueError("epochs and save_every must be positive")
-
-    run_directory = (
-        _create_run_directory(args.checkpoint or training.checkpoint_path, cfg)
-        if save else None
-    )
+    run_directory = None
+    if save:
+        run_directory = _create_run_directory(args.checkpoint or training.checkpoint_path, cfg)
+        print(f"Saving model training data to {run_directory}")
     torch.set_default_dtype(torch.float32)
     device = pick_device()
     print(f"device: {device}")
@@ -123,7 +119,7 @@ def train(cfg, args, desc=None, save=True, tol=None, hits_below_tol=1):
         cfg.derived.t_eval, dtype=torch.float32, device=device,
     ).view(-1, 1)
 
-    pde_losses, data_losses, total_losses = [], [], []
+    pde_losses, data_losses, lrs = [], [], []
     try:
         progress = tqdm(range(epochs), desc=desc or "Training")
         with progress:
@@ -132,48 +128,38 @@ def train(cfg, args, desc=None, save=True, tol=None, hits_below_tol=1):
                 total_loss, pde_loss, data_loss = _train_step(
                     model, optimizer, scheduler, cfg, params, training_data, device,
                 )
-                total_losses.append(total_loss)
                 pde_losses.append(pde_loss)
                 data_losses.append(data_loss)
+                lrs.append(scheduler.get_lr())
                 progress.set_postfix({
                     "Total": f"{total_loss:.4e}",
                     "PDE": f"{pde_loss:.4e}",
                     "Data": f"{data_loss:.4e}",
                     "LR": f"{scheduler.get_lr():.3e}",
                 })
-                if tol is not None and total_loss < tol:
+                if early_stop is not None and total_loss < early_stop:
                     num_hits += 1
-                    if num_hits >= hits_below_tol:
-                        print(f"tolerance already achieved. stopping training")
+                    if num_hits >= early_stop_wait:
+                        print(f"early stop invoked")
                         break
                 epoch = step + 1
                 if save and epoch % save_every == 0:
-                    _save_checkpoint(
-                        model, cfg, t_metrics, run_directory, epoch, total_loss,
-                    )
+                    _save_checkpoint(model, cfg, t_metrics, run_directory, epoch)
                     _save_plots(
-                        model, cfg, device, run_directory, epoch,
-                        pde_losses, data_losses, args.show,
+                        model, cfg, device, run_directory, epoch, pde_losses, data_losses, lrs, args.show
                     )
     finally:
         if save:
-            save_losses(
-                pde_losses, data_losses, os.path.join(run_directory, "losses.csv"),
-                total_losses=total_losses,
-            )
-            completed_epochs = len(total_losses)
-            if completed_epochs == 0 or completed_epochs % save_every != 0:
-                _save_checkpoint(
-                    model, cfg, t_metrics, run_directory, completed_epochs,
-                    total_losses[-1] if total_losses else None,
+            save_losses(pde_losses, data_losses, lrs, os.path.join(run_directory, "losses.csv"))
+            completed_epochs = len(pde_losses)
+            if completed_epochs > 0 and completed_epochs % save_every != 0:
+                _save_checkpoint(model, cfg, t_metrics, run_directory, completed_epochs)
+                _save_plots(
+                    model, cfg, device, run_directory, epoch, pde_losses, data_losses, lrs, args.show
                 )
     return model
 
 
-def main():
-    args = parse_args()
-    train(config.load_config(args.config), args)
-
-
 if __name__ == "__main__":
-    main()
+    args = parse_args()
+    train(args)

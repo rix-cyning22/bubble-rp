@@ -38,7 +38,7 @@ def plot_just_R(t, y_true, y_pred, de_val, out_path, skip=40):
     return plt.gcf()
 
 
-def plot_R_panels(model, cfg, device, out_path, epoch=None, skip=25):
+def plot_R_panels(model, cfg, device, epoch, out_path, skip=25):
     n = len(cfg.training.eval_de)
     rows, cols = (2, (n + 1) // 2) if n > 3 else (1, n)
     fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 4 * rows),
@@ -62,24 +62,30 @@ def plot_R_panels(model, cfg, device, out_path, epoch=None, skip=25):
     for j in range(len(cfg.training.eval_de), rows * cols):
         axes[j // cols, j % cols].axis('off')
 
-    if epoch is not None:
-        plt.suptitle(f"Epoch {epoch}", fontsize=15)
+    plt.suptitle(f"Epoch {epoch}", fontsize=15)
     plt.tight_layout()
     fig.savefig(out_path)
     return fig
 
 
-def plot_loss_curves(pde_losses, data_losses, out_path, epoch=None):
-    fig = plt.figure(figsize=(8, 5), dpi=140)
-    plt.plot(pde_losses, "r-", alpha=0.8, label="PDE residual")
-    plt.plot(data_losses, "b-", alpha=0.8, label="data (amplitude-normalized)")
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.yscale('log')
-    plt.legend()
-    if epoch is not None:
-        plt.title(f"Epoch {epoch}")
-    plt.tight_layout()
+def plot_loss_curves(pde_losses, data_losses, learning_rates, epoch, out_path):
+    fig, ax_loss = plt.subplots(figsize=(8, 5), dpi=140)
+    ax_loss.plot(pde_losses, "r-", alpha=0.8, label="PDE residual")
+    ax_loss.plot(data_losses, "b-", alpha=0.8, label="numerical solution")
+    ax_loss.set_xlabel("Epoch")
+    ax_loss.set_ylabel("Loss")
+    ax_loss.set_yscale("log")
+
+    ax_lr = ax_loss.twinx()
+    ax_lr.plot(learning_rates, "k--", alpha=0.6, label="learning rate")
+    ax_lr.set_ylabel("Learning rate")
+    ax_lr.set_yscale("log")
+
+    loss_lines, loss_labels = ax_loss.get_legend_handles_labels()
+    lr_lines, lr_labels = ax_lr.get_legend_handles_labels()
+    ax_loss.legend(loss_lines + lr_lines, loss_labels + lr_labels)
+    ax_loss.set_title(f"Epoch {epoch}")
+    fig.tight_layout()
     fig.savefig(out_path)
     return fig
 
