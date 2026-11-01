@@ -64,20 +64,5 @@
       3.5,
       4.0
     ]
-  },
-  "fft_data_generation": {
-    "drive_freq_range": [
-      0.5,
-      2.0
-    ],
-    "de_range": [
-      1.0,
-      4.0
-    ],
-    "num_de": 4,
-    "num_drive_freqs": 4,
-    "save_dir": "fft_data",
-    "early_stop": 0.7,
-    "early_stop_wait": 125
   }
 }
