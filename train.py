@@ -94,8 +94,7 @@ def _save_plots(model, cfg, device, run_directory, epoch,
             plt.close(figure)
 
 
-def train(args, desc=None, save=True, early_stop=None, early_stop_wait=1):
-    cfg = config.load_config(args.config)
+def train(cfg, args, desc=None, save=True, early_stop=None, early_stop_wait=1):
     training = cfg.training
     epochs = training.epochs if args.epochs is None else args.epochs
     save_every = training.save_every if args.save_every is None else args.save_every
@@ -162,4 +161,4 @@ def train(args, desc=None, save=True, early_stop=None, early_stop_wait=1):
 
 if __name__ == "__main__":
     args = parse_args()
-    train(args)
+    train(config.load_config(args.config), args)

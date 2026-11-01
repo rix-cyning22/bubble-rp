@@ -1,7 +1,7 @@
 import argparse
 import os
 import matplotlib.pyplot as plt
-from metrics import CHANNELS, evaluate_at_de, save_radius_comparison
+from metrics import CHANNELS, evaluate_at_de
 import numpy as np
 from model import load_checkpoint, n_params
 from optim import pick_device
@@ -56,10 +56,6 @@ def main():
         os.makedirs(de_dir, exist_ok=True)
         t, y_true, y_pred, errors = evaluate_at_de(
             model, cfg, device, de_val, savepath=de_dir)
-        save_radius_comparison(
-            t, y_true, y_pred,
-            os.path.join(out_dir, f"data_de_{de_val:g}_f_{frequency:g}.csv"),
-        )
         print(f"{de_val:>7.3f}  " + "  ".join(f"{e*100:11.2f}%" for e in errors))
 
         plot_fn = plot_all_states if args.plot_all_states else plot_just_R
