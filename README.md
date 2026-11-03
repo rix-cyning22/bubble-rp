@@ -140,12 +140,6 @@ uv sync
 
 This installs the project and the dependency set declared in `pyproject.toml`, including `torch`, `numpy`, `scipy`, `pandas`, and `matplotlib`.
 
-If you want to activate the environment manually, you can do:
-
-```bash
-source .venv/bin/activate
-```
-
 ### Train the model
 
 The default training pipeline reads the settings in `config.json` and begins training immediately:
