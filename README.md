@@ -146,13 +146,6 @@ The default training pipeline reads the settings in `config.json` and begins tra
 
 ```bash
 uv run train.py
-```
-
-You can override config values as needed, for example:
-
-```bash
-uv run train.py
-```
 
 Training writes checkpoints into `./checkpoints/<run_name>/epoch_<n>/`, including the model weights and evaluation CSV files. The configs used for the training is given in `config.py`
 
