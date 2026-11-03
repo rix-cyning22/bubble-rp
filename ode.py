@@ -8,32 +8,32 @@ def simulate(De, cfg):
     p, dv, slv = cfg.physical, cfg.derived, cfg.reference_solver
 
     lambda_hat = De / (2.0 * np.pi)
-    G_hat = (p.eta * 2.0 * np.pi * p.f / De) / p.P0
+    G_hat = dv.eta_P0_f / De if De > 0 else 0
 
-    P_A_hat, gamma_hat = dv.P_A_hat, dv.gamma_hat
-    P_g0_hat, I_param = dv.P_g0_hat, dv.I_param
-    kappa = p.kappa
+    P_A_hat, gamma_hat, P_g0_hat, I_param, kappa = dv.P_A_hat, dv.gamma_hat, dv.P_g0_hat, dv.I_param, p.kappa
 
     def rhs(t_hat, y):
-        R_hat, v_hat, tau_rr_hat, tau_tt_hat = y
-        R_safe = max(R_hat, 1e-12)
-        sr = v_hat / R_safe
+        R_hat, v_hat, A_hat, B_hat = y
+        R_safe = max(R_hat, cfg.training.r_floor)
 
         PA_hat = -P_A_hat * cfg.waveform(t_hat, t_end=cfg.domain.t_end)
         Pg_hat = P_g0_hat * (1.0 / R_safe) ** (3.0 * kappa)
-
-        v_dot_hat = (1.0 / (I_param * R_safe)) * (
-            Pg_hat - 1.0 - PA_hat - (gamma_hat / R_safe) + (tau_rr_hat - tau_tt_hat)
-        ) - 0.5 * (v_hat**2 / R_safe)
-
-        d_tau_rr = -4.0 * G_hat * sr - (tau_rr_hat / lambda_hat) - 4.0 * sr * tau_rr_hat
-        d_tau_tt = 2.0 * G_hat * sr - (tau_tt_hat / lambda_hat) + 2.0 * sr * tau_tt_hat
-
-        return [v_hat, v_dot_hat, d_tau_rr, d_tau_tt]
+        dp_hat = Pg_hat - 1 + PA_hat
+        if lambda_hat > 0:
+            visc_hat = 2 * G_hat * (A_hat / R_safe ** 4 + B_hat / R_safe)
+            dA_hat = R_safe ** 3 * v_hat - A_hat / lambda_hat
+            dB_hat = v_hat - B_hat / lambda_hat
+        else:
+            visc_hat = 0
+            dA_hat = 0
+            dB_hat = 0
+        v_dot_hat = ((dp_hat - gamma_hat / R_safe - visc_hat) / I_param - 1.5 * v_hat ** 2) / R_safe
+        return [v_hat, v_dot_hat, dA_hat, dB_hat]
 
     sol = solve_ivp(
         rhs, [0.0, cfg.domain.t_end], [1.0, 0.0, 0.0, 0.0],
         t_eval=dv.t_eval, method=slv.method, rtol=slv.rtol, atol=slv.atol,
+        max_step=1/200
     )
     return sol.t, sol.y[0], sol.y[1], sol.y[2], sol.y[3]
 

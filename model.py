@@ -67,10 +67,10 @@ class Model(nn.Module):
 
         R      = 1.0 + t * raw[:, 0:1]
         v      = 0.0 + t * raw[:, 1:2]
-        tau_rr = 0.0 + t * raw[:, 2:3]
-        tau_th = 0.0 + t * raw[:, 3:4]
+        A = 0.0 + t * raw[:, 2:3]
+        B = 0.0 + t * raw[:, 3:4]
 
-        return torch.cat([R, v, tau_rr, tau_th], dim=1)
+        return torch.cat([R, v, A, B], dim=1)
 
 
 def build_model(cfg, device):

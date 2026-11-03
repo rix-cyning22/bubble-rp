@@ -3,7 +3,7 @@
     "name": "sine",
     "args": [],
     "kwargs": {
-      "freq": 1.0
+      "freq": 0.5
     }
   },
   "physical": {
@@ -29,12 +29,12 @@
     "atol": 1e-8
   },
   "data": {
-    "anchor_step_low": 0.1,
+    "anchor_step_low": 0.05,
     "anchor_step_high": 0.1
   },
   "model": {
     "hidden_dim": 64,
-    "num_layers": 3,
+    "num_layers": 4,
     "num_t_freqs": 32,
     "sigma": 3.0,
     "num_de_freqs": 32,
@@ -45,9 +45,9 @@
     "lr": 1.2e-3,
     "collocation_points": 2000,
     "data_batch": 4096,
-    "data_weight": 1.0,
+    "data_weight": 1000,
     "grad_clip": 1.0,
-    "r_floor": 1e-5,
+    "r_floor": 1e-3,
     "checkpoint_path": "./checkpoints",
     "save_every": 1000,
     "scheduler": {
