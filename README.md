@@ -122,49 +122,53 @@ where $\mathcal{L}_{PDE}$ is the residual loss built from the equations above an
 - Python 3.13 or newer
 - A local virtual environment is recommended
 
-### Create and activate the environment
+### Install uv if needed
+
+If `uv` is not already installed, install it from the official Astral installer:
+
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Then set up the project environment:
 
 ```bash
 git clone <repository-url>
-cd something
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### Install dependencies
-
-```bash
-python -m pip install --upgrade pip
-pip install -e .
+cd bubble-rp
+uv sync
 ```
 
 This installs the project and the dependency set declared in `pyproject.toml`, including `torch`, `numpy`, `scipy`, `pandas`, and `matplotlib`.
+
+If you want to activate the environment manually, you can do:
+
+```bash
+source .venv/bin/activate
+```
 
 ### Train the model
 
 The default training pipeline reads the settings in `config.json` and begins training immediately:
 
 ```bash
-python train.py
+uv run train.py
 ```
 
 You can override config values as needed, for example:
 
 ```bash
-python train.py --epochs 8000 --save-every 1000 --checkpoint ./checkpoints
+uv run train.py
 ```
 
-Training writes checkpoints into `./checkpoints/<run_name>/epoch_<n>/`, including the model weights and evaluation CSV files.
+Training writes checkpoints into `./checkpoints/<run_name>/epoch_<n>/`, including the model weights and evaluation CSV files. The configs used for the training is given in `config.py`
 
 ### Evaluate a trained model
 
 After training, evaluate the saved checkpoint at one or more Deborah numbers:
 
 ```bash
-python evaluate.py --model ./checkpoints/<run_name>/epoch_8000/model.pt --de 1.0 2.0 3.0 4.0
+uv run evaluate.py --model ./checkpoints/<run_name>/epoch_8000/model.pt --de 1.0 2.0 3.0 4.0
 ```
-
-Use `--show` to display plots interactively, and `--out-dir` to select a custom output directory.
 
 ## Notes
 
